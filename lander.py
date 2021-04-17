@@ -27,6 +27,17 @@ class Agent:
             matrix = self.activate(mat @ matrix)
         # flatten matrix to 1D list
         return  matrix.tolist()
+    def calculate_node_values(self, input):
+        matrix = np.matrix(input).transpose()
+        node_data = []
+        node_data.append(matrix.tolist())
+        for mat in self.matrices:
+            matrix = self.activate(mat @ matrix)
+            # flatten matrix to 1D list
+            node_data.append(matrix.tolist())
+      
+        return node_data
+        
     def to_array(self):
         return [np.asarray(i).tolist() for i in self.matrices]
     def to_matrix(self, arr):
@@ -43,7 +54,7 @@ def load_network():
    
     file.close()
     
-    return agent
+    return (agent,network_weights)
 
 def reset_trial(connection):
     connection.space_center.load("ai_500m")
@@ -76,10 +87,55 @@ def get_inputs(connection):
 
     #print(inputs)
     return inputs
+def get_color(weight):
+    weight = max(-1,min(1,weight))
+    color = (max(0,int(weight*255)),0,max(0,int(-weight*255)))
+    return color
+
+def render_network(agent, screen, inputs, weight_render, render_weights, network_weights):
+    network_size = agent.network_size
+    NODE_DIST = 50
+    NODE_SIZE = 10
+    X_OFFSET = 100
+    Y_OFFSET = 50
+    
+    # render weights
+    if(render_weights):
+        count = 0
+        for i, layer in enumerate(network_size):
+            if i==len(network_size)-1:
+                break
+            for row in range(network_size[i+1]):
+                for col in range(network_size[i]):
+                    index = row*network_size[i+1] + col + count
+                    weight = network_weights[index]
+                    v1_dist = (500-Y_OFFSET)//layer
+                    node1_x = X_OFFSET+(i*125)
+                    node1_y = Y_OFFSET+(col*v1_dist)
+                    v2_dist = (500-Y_OFFSET)//network_size[i+1]
+                    node2_x = X_OFFSET+((i+1)*125)
+                    node2_y = Y_OFFSET+(row*v2_dist)
+                    color = get_color(weight)
+                    pygame.draw.line(weight_render, color=color,start_pos=(node1_x,node1_y), end_pos=(node2_x,node2_y))
+            count += network_size[i+1]*network_size[i]
+    # draw weights to screen
+    screen.blit(weight_render, (0,0))
+    
+    network_data = agent.calculate_node_values(inputs)
+    
+    # draw nodes
+    for i, layer in enumerate(network_size):
+        v_dist = (500-Y_OFFSET)//layer
+        node_data = network_data[i]
+        for node in range(layer):
+            val = node_data[node][0]
+            color = get_color(val)
+            pygame.draw.circle(screen,radius=NODE_SIZE, center=(X_OFFSET+(i*125),Y_OFFSET+(node*v_dist)), color=color)
+    
 
 def main():
     
-    agent = load_network()
+    agent,network_weights = load_network()
     print("Agent loaded.")
     
     print("Connecting to server...")
@@ -95,7 +151,12 @@ def main():
     print("Loaded quick save")
     
     pygame.init()
-    screen = pygame.display.set_mode((500,500))
+    
+    screen = pygame.display.set_mode((600,500))
+    weight_render = pygame.Surface((600,500))
+    weight_render.fill((100,100,100))
+    render_weights = True
+    
     running = True
     cycle_count = 0
     while running:
@@ -116,10 +177,15 @@ def main():
             control.throttle = 0.0
             print("Landed")
             running = False
-        if cycle_count%10==0:
-            
-        
-        
+        # Every Kth cycle, display network
+        if RENDER_NETWORK and cycle_count%10==0:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+            screen.fill((255,255,255))
+            render_network(agent,screen, inputs, weight_render,render_weights,network_weights)
+            render_weights = False
+            pygame.display.update()
     connection.close()
 if __name__ == "__main__":
     main()
