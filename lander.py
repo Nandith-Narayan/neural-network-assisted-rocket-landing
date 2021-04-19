@@ -73,7 +73,7 @@ def get_inputs(connection):
     
     inputs[0], inputs[1], inputs[2], inputs[3] = (1.0,1.0,1.0,1.0) #flight_info.rotation
     
-    inputs[4] = (flight_info.surface_altitude-20)/500.0 
+    inputs[4] = (flight_info.surface_altitude)/500.0 
     
     speed = vessel.flight(ref_frame).speed
     horizontal_speed = vessel.flight(ref_frame).horizontal_speed
@@ -170,6 +170,12 @@ def main():
         # Use the output to control the agent
         control = connection.space_center.active_vessel.control
         control.throttle = (outputs[0][0]+1)/2
+        if outputs[1][0] > 0:
+            control.sas_mode = connection.space_center.SASMode.retrograde
+        else:
+            control.sas_mode = connection.space_center.SASMode.stability_assist
+
+        
         #print(outputs[0][0],(outputs[0][0]+1)/2)
 
         if str(connection.space_center.active_vessel.situation) == "VesselSituation.landed":
